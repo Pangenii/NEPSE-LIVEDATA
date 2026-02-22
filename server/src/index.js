@@ -1,0 +1,56 @@
+require("dotenv").config();
+const express = require("express");
+const cheerio = require("cheerio");
+const axios = require("axios");
+const app = express();
+
+const siteURL = process.env.SITE_URL;
+
+const extractNepseData = async () => {
+    try {
+        const keys = [
+            "scrip",
+            "ltp",
+            "percent_change",
+            "high",
+            "low",
+            "LowValue",
+            "qty"
+        ]
+        const nepseData = []
+        const { data } = await axios.get(siteURL);
+        const $ = cheerio.load(data)
+        const elemSelector = "#ctl00_ContentPlaceHolder1_LiveTrading > table > tbody > tr";
+        $(elemSelector).each((parentIndex, parentElement) => {
+            let keyIndex = 0;
+            const marketData = {};
+            $(parentElement).children().each((childIndex, childElement) => {
+                const tdValue = $(childElement).text();
+                if (tdValue) {
+                    marketData[keys[keyIndex]] = tdValue;
+                }
+                keyIndex++;
+            })
+            nepseData.push(marketData);
+        })
+        return nepseData
+    } catch (error) {
+        console.error(error)
+    }
+}
+
+app.get("/api/nepse/livedata", async (req, res) => {
+    try {
+        const result = await extractNepseData();
+        return res.status(200).json({
+            result
+        })
+    } catch (error) {
+        throw new error;
+    }
+
+})
+
+app.listen(3000, () => {
+    console.log("Server is running on the port: 3000");
+})
